@@ -32,6 +32,11 @@ void ConstraintCritic::initialize()
   getParentParam(vx_max_, "vx_max", 0.5f);
   getParentParam(vy_max_, "vy_max", 0.0f);
   getParentParam(vx_min_, "vx_min", -0.35f);
+  getParentParam(ax_max_,"ax_max",0.5f);
+  getParentParam(ax_min_,"ax_min",0.5f);
+  getParentParam(ay_max_,"ay_max",0.5f);
+  getParentParam(ay_min_,"ay_min",0.5f);
+  getParentParam(az_max_,"az_max",0.5f);
 }
 
 void ConstraintCritic::score(CriticData & data)
@@ -43,12 +48,23 @@ void ConstraintCritic::score(CriticData & data)
   // Differential motion model
   auto diff = dynamic_cast<DiffDriveMotionModel *>(data.motion_model.get());
   if (diff != nullptr) {
+    // cost on speed limits
     if (power_ > 1u) {
       data.costs += (((((data.state.vx - vx_max_).max(0.0f) + (vx_min_ - data.state.vx).
         max(0.0f)) * data.model_dt).rowwise().sum().eval()) * weight_).pow(power_).eval();
+
+        
     } else {
       data.costs += (((((data.state.vx - vx_max_).max(0.0f) + (vx_min_ - data.state.vx).
         max(0.0f)) * data.model_dt).rowwise().sum().eval()) * weight_).eval();
+    }
+    // cost on acceleration limits
+    if(power_ >1u){
+      // diff on the intermediate speed
+      // for first one , use the previous speed ?
+      // add cost on diff with wz too ?
+    }else{
+
     }
     return;
   }
@@ -67,6 +83,15 @@ void ConstraintCritic::score(CriticData & data)
     } else {
       data.costs += (((((vx - vx_max_).max(0.0f) + (vx_min_ - vx).max(0.0f) +
         (vy.abs() - vy_max_).max(0.0f)) * data.model_dt).rowwise().sum().eval()) * weight_).eval();
+    }
+
+    // cost on acceleration limits
+    if(power_ >1u){
+      // diff on the intermediate speed
+      // for first one , use the previous speed ?
+
+    }else{
+
     }
     return;
   }
@@ -89,6 +114,14 @@ void ConstraintCritic::score(CriticData & data)
     } else {
       data.costs += ((((vx - vx_max_).max(0.0f) + (vx_min_ - vx).max(0.0f) +
         out_of_turning_rad_motion) * data.model_dt).rowwise().sum().eval() * weight_).eval();
+    }
+    // cost on acceleration limits
+    if(power_ >1u){
+      // diff on the intermediate speed
+      // for first one , use the previous speed ?
+
+    }else{
+
     }
     return;
   }

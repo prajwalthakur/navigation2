@@ -47,6 +47,11 @@ protected:
   float vx_max_{0};
   float vx_min_{0};
   float vy_max_{0};
+  float ax_max_{0};
+  float ax_min_{0};
+  float ay_max_{0};
+  float ay_min_{0};
+  float az_max_{0};
 };
 
 }  // namespace mppi::critics

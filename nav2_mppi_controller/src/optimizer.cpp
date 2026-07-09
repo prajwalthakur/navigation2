@@ -312,6 +312,7 @@ void Optimizer::prepare(
     const auto & c = settings_.constraints;
     const double dt = settings_.controller_period;
     state_.speed = robot_speed;
+    state_.last_speed = speed;
     state_.speed.linear.x = std::clamp(
       last_command_vel_.linear.x,
       robot_speed.linear.x + dt * c.ax_min,
