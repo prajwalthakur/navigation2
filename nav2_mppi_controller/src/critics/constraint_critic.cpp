@@ -63,6 +63,10 @@ void ConstraintCritic::score(CriticData & data)
       // diff on the intermediate speed
       // for first one , use the previous speed ?
       // add cost on diff with wz too ?
+      auto vx_seq = data.state.vx;
+      auto  vx_prev_seq = [data.state.last_speed data.state.vx[0:-2]] 
+      auto vx_diff_speed = vx_seq - vx_prev_seq;
+      data.costs += (vx_diff_speed - )
     }else{
 
     }
