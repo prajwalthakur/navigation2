@@ -52,6 +52,7 @@ protected:
   float ay_max_{0};
   float ay_min_{0};
   float az_max_{0};
+  float model_dt_{0};
 };
 
 }  // namespace mppi::critics

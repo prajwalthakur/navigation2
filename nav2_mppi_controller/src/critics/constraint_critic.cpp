@@ -32,11 +32,12 @@ void ConstraintCritic::initialize()
   getParentParam(vx_max_, "vx_max", 0.5f);
   getParentParam(vx_min_, "vx_min", -0.35f);
   getParentParam(vy_max_, "vy_max", 0.0f);
-  getParentParam(ax_max_,"ax_max",0.5f);
-  getParentParam(ax_min_,"ax_min",-0.5f);
-  getParentParam(ay_max_,"ay_max",0.5f);
-  getParentParam(ay_min_,"ay_min",-0.5f);
-  getParentParam(az_max_,"az_max",0.5f);
+  getParentParam(ax_max_, "ax_max", 0.5f);
+  getParentParam(ax_min_, "ax_min", -0.5f);
+  getParentParam(ay_max_, "ay_max", 0.5f);
+  getParentParam(ay_min_, "ay_min", -0.5f);
+  getParentParam(az_max_, "az_max", 0.5f);
+  getParentParam(model_dt_,"model_dt",0.05f);
 }
 
 void ConstraintCritic::score(CriticData & data)
@@ -45,38 +46,42 @@ void ConstraintCritic::score(CriticData & data)
     return;
   }
 
-  float max_delta_vx = s.model_dt * ax_max_;
-  float min_delta_vx = s.model_dt * ax_min_;
-  float max_delta_vy = s.model_dt * ay_max_;
-  float min_delta_vy = s.model_dt * ay_min_;
-  float max_delta_wz = s.model_dt * az_max_;
+  float max_delta_vx =  model_dt_ * ax_max_;
+  float min_delta_vx =  model_dt_ * ax_min_;
+  float max_delta_vy =  model_dt_ * ay_max_;
+  float min_delta_vy =  model_dt_ * ay_min_;
+  float max_delta_wz =  model_dt_ * az_max_;
 
-  unsigned int num_cols =  data.state.vx.cols();
-  unsigned int num_rows =  data.state.vx.rows();
+  unsigned int num_cols = data.state.vx.cols();
+  unsigned int num_rows = data.state.vx.rows();
 
   // Differential motion model
   auto diff = dynamic_cast<DiffDriveMotionModel *>(data.motion_model.get());
   if (diff != nullptr) {
 
-    auto& vx = data.state.vx;
-    Eigen::ArrayXXf vx_shifted(num_rows,num_cols); 
+    auto & vx = data.state.vx;
+    Eigen::ArrayXXf vx_shifted(num_rows, num_cols);
     vx_shifted.col(0).setConstant(static_cast<float>(data.state.speed.linear.x));
-    vx_shifted.rightCols(num_cols-1) = data.state.vx.leftCols(num_cols-1);      
+    vx_shifted.rightCols(num_cols - 1) = vx.leftCols(num_cols - 1);
     // acceleration : a[:, i] = (vx[:, i] - vx[:, i-1]) / dt, i = 1..N-1
     Eigen::ArrayXXf vx_diff = vx - vx_shifted;
     // cost on speed limits
     if (power_ > 1u) {
       data.costs += (((((data.state.vx - vx_max_).max(0.0f) + (vx_min_ - data.state.vx).
         max(0.0f)) * data.model_dt).rowwise().sum().eval()) * weight_).pow(power_).eval();
-      data.costs += (((((vx_diff - max_delta_vx).max(0.0f) + (min_delta_vx - vx_diff).max(0.0f))*data.model_dt).rowwise().sum.eval())*weight_).pow(power_).eval(); 
-    
+      
+      // cost on acceleration limits
+      data.costs += (((((vx_diff - max_delta_vx).max(0.0f) + (min_delta_vx - vx_diff).max(0.0f)) *
+        data.model_dt).rowwise().sum().eval()) * weight_).pow(power_).eval();
+
     } else {
       data.costs += (((((data.state.vx - vx_max_).max(0.0f) + (vx_min_ - data.state.vx).
         max(0.0f)) * data.model_dt).rowwise().sum().eval()) * weight_).eval();
 
       // cost on acceleration limits
-      data.costs += (((((vx_diff - max_delta_vx).max(0.0f) + (min_delta_vx - vx_diff).max(0.0f))*data.model_dt).rowwise().sum.eval())*weight_).eval();
-    
+      data.costs += (((((vx_diff - max_delta_vx).max(0.0f) + (min_delta_vx - vx_diff).max(0.0f)) *
+        data.model_dt).rowwise().sum().eval()) * weight_).eval();
+
     }
     return;
   }
@@ -88,22 +93,20 @@ void ConstraintCritic::score(CriticData & data)
     auto & vx = data.state.vx;
     auto & vy = data.state.vy;
 
-    // for acceleration 
-    // accel_x 
-    auto& vx = data.state.vx;
-    Eigen::ArrayXXf vx_shifted(num_rows,num_cols); 
+    // for acceleration
+    // accel_x
+    Eigen::ArrayXXf vx_shifted(num_rows, num_cols);
     vx_shifted.col(0).setConstant(static_cast<float>(data.state.speed.linear.x));
-    vx_shifted.rightCols(num_cols-1) = data.state.vx.leftCols(num_cols-1);      
+    vx_shifted.rightCols(num_cols - 1) = vx.leftCols(num_cols - 1);
     // acceleration : a[:, i] = (vx[:, i] - vx[:, i-1]) / dt, i = 1..N-1
     Eigen::ArrayXXf vx_diff = vx - vx_shifted;
-    
+
     // accel_y
-    auto& vy_seq = data.state.vy;
-    Eigen::ArrayXXf vy_shifted(num_rows,num_cols); 
+    Eigen::ArrayXXf vy_shifted(num_rows, num_cols);
     vy_shifted.col(0).setConstant(static_cast<float>(data.state.speed.linear.y));
-    vy_shifted.rightCols(num_cols-1) = data.state.vy.leftCols(num_cols-1);      
+    vy_shifted.rightCols(num_cols - 1) = vy.leftCols(num_cols - 1);
     // acceleration : a[:, i] = (vx[:, i] - vx[:, i-1]) / dt, i = 1..N-1
-    Eigen::ArrayXXf vy_diff = vy_seq - vy_shifted;   
+    Eigen::ArrayXXf vy_diff = vy - vy_shifted;
 
     if(power_ > 1u) {
       data.costs += (((((vx - vx_max_).max(0.0f) + (vx_min_ - vx).max(0.0f) +
@@ -111,19 +114,19 @@ void ConstraintCritic::score(CriticData & data)
         weight_).pow(power_).eval();
 
       data.costs += (((((vx_diff - max_delta_vx).max(0.0f) + (min_delta_vx - vx_diff).max(0.0f) +
-                        (vy_diff - max_delta_vy).max(0.0f) + (min_delta_vy - vy_diff).max(0.0f)
-                        )*data.model_dt).rowwise().sum.eval())*weight_).pow(power_).eval(); 
-    
-      
+        (vy_diff - max_delta_vy).max(0.0f) + (min_delta_vy - vy_diff).max(0.0f)
+        ) * data.model_dt).rowwise().sum().eval()) * weight_).pow(power_).eval();
+
+
     } else {
-        data.costs += (((((vx - vx_max_).max(0.0f) + (vx_min_ - vx).max(0.0f) +
-          (vy.abs() - vy_max_).max(0.0f)) * data.model_dt).rowwise().sum().eval()) * weight_).eval();
+      data.costs += (((((vx - vx_max_).max(0.0f) + (vx_min_ - vx).max(0.0f) +
+        (vy.abs() - vy_max_).max(0.0f)) * data.model_dt).rowwise().sum().eval()) * weight_).eval();
 
-        data.costs += (((((vx_diff - max_delta_vx).max(0.0f) + (min_delta_vx - vx_diff).max(0.0f) +
+      data.costs += (((((vx_diff - max_delta_vx).max(0.0f) + (min_delta_vx - vx_diff).max(0.0f) +
 
-                        (vy_diff - max_delta_vy).max(0.0f) + (min_delta_vy - vy_diff).max(0.0f)
-                      )*data.model_dt).rowwise().sum.eval())*weight_).eval();
-        }
+        (vy_diff - max_delta_vy).max(0.0f) + (min_delta_vy - vy_diff).max(0.0f)
+        ) * data.model_dt).rowwise().sum().eval()) * weight_).eval();
+    }
     return;
   }
 
@@ -138,9 +141,9 @@ void ConstraintCritic::score(CriticData & data)
     auto wz_safe = wz.abs().max(epsilon);  // Replace small wz values to avoid division by 0
     auto out_of_turning_rad_motion = (min_turning_rad - (vx.abs() / wz_safe)).max(0.0f);
 
-    Eigen::ArrayXXf vx_shifted(num_rows,num_cols); 
+    Eigen::ArrayXXf vx_shifted(num_rows, num_cols);
     vx_shifted.col(0).setConstant(static_cast<float>(data.state.speed.linear.x));
-    vx_shifted.rightCols(num_cols-1) = data.state.vx.leftCols(num_cols-1);      
+    vx_shifted.rightCols(num_cols - 1) = vx.leftCols(num_cols - 1);
     // acceleration : a[:, i] = (vx[:, i] - vx[:, i-1]) / dt, i = 1..N-1
     Eigen::ArrayXXf vx_diff = vx - vx_shifted;
 
@@ -148,15 +151,17 @@ void ConstraintCritic::score(CriticData & data)
       data.costs += ((((vx - vx_max_).max(0.0f) + (vx_min_ - vx).max(0.0f) +
         out_of_turning_rad_motion) * data.model_dt).rowwise().sum().eval() *
         weight_).pow(power_).eval();
-      
-      data.costs += (((((vx_diff - max_delta_vx).max(0.0f) + (min_delta_vx - vx_diff).max(0.0f))*data.model_dt).rowwise().sum.eval())*weight_).pow(power_).eval(); 
+
+      data.costs += (((((vx_diff - max_delta_vx).max(0.0f) + (min_delta_vx - vx_diff).max(0.0f)) *
+        data.model_dt).rowwise().sum().eval()) * weight_).pow(power_).eval();
 
     } else {
       data.costs += ((((vx - vx_max_).max(0.0f) + (vx_min_ - vx).max(0.0f) +
         out_of_turning_rad_motion) * data.model_dt).rowwise().sum().eval() * weight_).eval();
-    
-      data.costs += (((((vx_diff - max_delta_vx).max(0.0f) + (min_delta_vx - vx_diff).max(0.0f))*data.model_dt).rowwise().sum.eval())*weight_).eval();
-    
+
+      data.costs += (((((vx_diff - max_delta_vx).max(0.0f) + (min_delta_vx - vx_diff).max(0.0f)) *
+        data.model_dt).rowwise().sum().eval()) * weight_).eval();
+
     }
     return;
   }
